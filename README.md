@@ -48,6 +48,8 @@ python mini_drone_gimbal.py versions  # the same for v1.0, v1.1 and v1.2
 
 All parts print without supports, in the orientation they are exported in, on a 256 mm bed. The rings print whole. The top bar and the base are cut into sections that overlap side by side and bolt together with M3 screws.
 
+I printed the parts in PLA on a Bambu Lab A1.
+
 | File | Notes |
 |---|---|
 | `base_a` … `base_d` | Base frame, in four corner sections |
