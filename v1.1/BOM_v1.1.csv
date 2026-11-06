@@ -1,0 +1,30 @@
+type,item,qty,size_mm,solid_g,notes
+printed,upright_v1.1,2,232 × 24 × 24,326.4,Frame sides
+printed,top_bar_a_v1.1,1,203 × 24 × 24,121.2,"Top bar, with the top pivot"
+printed,top_bar_b_v1.1,1,119 × 24 × 24,69.8,Top bar
+printed,outer_ring_v1.1,1,226 × 215 × 10,30.1,Yaw ring
+printed,inner_ring_v1.1,1,220 × 188 × 10,26.8,Pitch ring
+printed,cradle_v1.1,1,52 × 182 × 28,14.1,"Roll axis, holds the drone"
+printed,sensor_mount_v1.1,1,28 × 49 × 13,5.8,Sensor board plate under the tray
+printed,cover_v1.1,1,46 × 60 × 18,4.9,Holds the drone body down
+printed,clip_v1.1,1,78 × 67 × 10,7.6,Snaps the cover on
+printed,bearing_fit_test_v1.1,1,51 × 8 × 10,1.5,"Print first, to tune BEARING_D"
+printed,pivot_shims_v1.1,1,53 × 4 × 1,0.0,"8 on one plate, 6 needed. Use a brim"
+printed,slip_mount_v1.1,1,60 × 50 × 26,26.7,Holds the slip ring on the top bar
+printed,slip_tube_v1.1,1,15 × 15 × 46,7.0,"Turns with the outer ring, carries the slip ring stem"
+printed,base_a_v1.1,1,217 × 217 × 54,402.8,"Base frame, corner section"
+printed,base_b_v1.1,1,105 × 217 × 24,194.6,"Base frame, corner section"
+printed,base_c_v1.1,1,217 × 105 × 54,250.6,"Base frame, corner section"
+printed,base_d_v1.1,1,105 × 105 × 24,114.7,"Base frame, corner section"
+hardware,"MR63ZZ bearing, 3 × 6 × 2.5 mm",5,,,"Two per pivot, none at the top pivot"
+hardware,M3 × 8 socket head screw,8,,,"5 pivot axles, 3 slip ring flange"
+hardware,M3 × 12 socket head screw,4,,,Uprights to base and top bar
+hardware,M3 × 16 socket head screw,4,,,"2 sensor mount to tray, 2 slip mount to top bar"
+hardware,M3 × 20 socket head screw,12,,,Frame lap joints
+hardware,"M3 hex nut, 5.5 mm across flats",19,,,"5 pivots, 12 frame joints, 2 sensor mount"
+hardware,M3 × 5 socket head screw,1,,,"Side screw, outer ring boss to slip tube"
+hardware,"M3 × 6 set screw, or short M3 screw",2,,,Slip tube onto the slip ring stem
+hardware,"M3 washer, 7 mm OD",3,,,Under the slip ring flange screws
+hardware,"Slip ring, 12 wire, 22 mm body (SNM022A-12)",1,,,"Top pivot, and power to the drone"
+hardware,"M3 screw or 3 mm woodscrew, 30 mm or longer",4,,,Base to the bench
+hardware,"Soft foam pad, about 15 × 20 × 2–3 mm",1,,,Inside the crown of the cover

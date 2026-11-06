@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.venv/
+.DS_Store
+*.zip
+# Rebuilt by `python mini_drone_gimbal.py stl`; the version folders hold the tracked copies
+/stl/
+/3mf/

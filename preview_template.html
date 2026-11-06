@@ -1,0 +1,490 @@
+<title>Mini Drone Gimbal</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a test-bench sheet. The turning model fills the top; build data follows in reading order. */
+:root {
+  --bg: #eef0f1; --panel: #f9fafa; --ink: #1c2329; --muted: #59646e; --line: #cdd3d8;
+  --stage: #dfe4e7; --outer: #c96f12; --inner: #1b7fb0; --steel: #6f7b86;
+  --display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --body: "Barlow", "Helvetica Neue", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #14181c; --panel: #1c2227; --ink: #e8ecef; --muted: #9aa6b0; --line: #333c44;
+  --stage: #20272d; --outer: #ee9238; --inner: #4cb0e0; --steel: #8d99a4; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #14181c; --panel: #1c2227; --ink: #e8ecef; --muted: #9aa6b0; --line: #333c44;
+  --stage: #20272d; --outer: #ee9238; --inner: #4cb0e0; --steel: #8d99a4; color-scheme: dark }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--ink); font: 400 16px/1.55 var(--body); }
+.wrap { max-width: 1120px; margin: 0 auto; padding-block: 28px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 40px; }
+header { display: grid; gap: 4px; }
+h1 { font: 600 clamp(34px, 6vw, 52px)/1.02 var(--display); letter-spacing: .01em; margin: 0; text-wrap: balance; }
+header p { margin: 0; color: var(--muted); max-width: 66ch; }
+h2 { font: 600 26px/1.15 var(--display); letter-spacing: .02em; margin: 0 0 12px; }
+.bench { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; }
+.stage { position: relative; background: var(--stage); min-height: 520px; overflow: hidden; }
+.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+.hint { position: absolute; left: 12px; bottom: 10px; font: 400 12px var(--mono); color: var(--muted); pointer-events: none; }
+.controls { background: var(--panel); border: 1px solid var(--line); padding: 16px; display: grid; gap: 16px; align-content: start; }
+.axis { display: grid; gap: 4px; }
+.axis label { display: flex; justify-content: space-between; gap: 8px; font-weight: 600; }
+.axis output { font: 400 14px var(--mono); font-variant-numeric: tabular-nums; color: var(--muted); }
+.axis small { color: var(--muted); font-size: 13px; line-height: 1.3; }
+.swatch { display: inline-block; width: 10px; height: 10px; margin-right: 7px; }
+input[type=range] { width: 100%; margin: 0; }
+#yaw { accent-color: var(--outer); } #pitch { accent-color: var(--inner); } #roll { accent-color: var(--steel); }
+.buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+button { font: 500 14px var(--body); color: var(--ink); background: transparent; border: 1px solid var(--muted); padding: 7px 12px; cursor: pointer; }
+button:hover { background: var(--stage); }
+button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+:focus-visible { outline: 2px solid var(--inner); outline-offset: 2px; }
+.readout { display: grid; gap: 2px; border-top: 1px solid var(--line); padding-top: 12px; }
+.readout strong { font: 500 20px var(--mono); font-variant-numeric: tabular-nums; }
+.readout span { font: 400 13px var(--mono); font-variant-numeric: tabular-nums; color: var(--muted); }
+.stage.measuring canvas { cursor: crosshair; }
+.check { display: flex; gap: 8px; align-items: center; font-size: 15px; }
+.columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px; }
+.columns > section { min-width: 0; }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+th { text-align: left; font: 500 12px var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+th, td { padding: 7px 12px 7px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+td.n { font: 400 14px var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+ol { margin: 0; padding-left: 22px; display: grid; gap: 8px; }
+code { font: 400 14px var(--mono); overflow-wrap: anywhere; }
+.note p { margin: 0 0 10px; max-width: 68ch; }
+.fallback { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--muted); }
+body.shot { margin: 0; }
+.shot .wrap { padding: 0; max-width: none; }
+.shot .wrap > :not(.bench), .shot .controls, .shot .hint { display: none; }
+.shot .bench { grid-template-columns: minmax(0, 1fr); }
+.shot .stage { height: 100vh; }
+@media (max-width: 860px) {
+  .bench, .columns { grid-template-columns: minmax(0, 1fr); }
+  .stage { min-height: 0; aspect-ratio: 1 / 1; max-width: 100%; }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Mini Drone Gimbal <small style="font-size:.5em;font-weight:600">v1.2</small></h1>
+    <p>A printed three-axis test rig for your egg-bodied quadcopter, sized from your ruler photo: 140 mm edge to edge and 85 mm between motors. The frame is 298 mm wide and 264 mm tall, plus about 45 mm for the slip ring, with 20 mm of clearance round the props inside the inner ring. The rings print whole on an A1, and the frame bolts together from sections.</p>
+  </header>
+
+  <div class="bench">
+    <div class="stage" id="stage">
+      <div class="fallback" id="fallback" hidden>This preview needs WebGL. Turn on hardware acceleration in the browser, then reload the page.</div>
+      <span class="hint">Drag to orbit, scroll to zoom. Measure: click two points</span>
+    </div>
+    <div class="controls">
+      <div class="axis">
+        <label for="yaw"><span><i class="swatch" style="background:var(--outer)"></i>Yaw, outer ring</span><output id="yawV">0°</output></label>
+        <input id="yaw" type="range" min="-180" max="180" value="28">
+        <small>Turns on the top and bottom bars</small>
+      </div>
+      <div class="axis">
+        <label for="pitch"><span><i class="swatch" style="background:var(--inner)"></i>Pitch, inner ring</span><output id="pitchV">0°</output></label>
+        <input id="pitch" type="range" min="-180" max="180" value="30">
+        <small>Turns inside the outer ring</small>
+      </div>
+      <div class="axis">
+        <label for="roll"><span><i class="swatch" style="background:var(--steel)"></i>Roll, drone cradle</span><output id="rollV">0°</output></label>
+        <input id="roll" type="range" min="-180" max="180" value="-25">
+        <small>Turns inside the inner ring</small>
+      </div>
+      <div class="axis">
+        <label for="explode"><span>Explode</span><output id="explodeV">0%</output></label>
+        <input id="explode" type="range" min="0" max="100" value="0">
+        <small>Pulls the parts apart and levels the rig</small>
+      </div>
+      <div class="buttons">
+        <button id="tumble" type="button" aria-pressed="false">Tumble</button>
+        <button id="level" type="button">Level</button>
+        <button id="measure" type="button" aria-pressed="false">Measure</button>
+        <button id="clearMeasure" type="button" hidden>Clear</button>
+      </div>
+      <div class="readout" id="readout" aria-live="polite" hidden>
+        <strong id="distance">Click the first point</strong>
+        <span id="deltas"></span>
+      </div>
+      <label class="check"><input id="showCover" type="checkbox" checked> Show the cover and clip</label>
+      <label class="check"><input id="showSlip" type="checkbox" checked> Show the slip ring</label>
+      <label class="check"><input id="envelope" type="checkbox"> Show the prop sweep and body limit</label>
+    </div>
+  </div>
+
+  <div class="columns">
+    <section>
+      <h2>Print list</h2>
+      <div class="scroll"><table>
+        <thead><tr><th>File</th><th>Qty</th><th>Size, mm</th><th>Solid mass</th></tr></thead>
+        <tbody>
+          <tr><td>base_a</td><td class="n">1</td><td class="n">217 × 217 × 54</td><td class="n">403 g</td></tr>
+          <tr><td>base_b</td><td class="n">1</td><td class="n">105 × 217 × 24</td><td class="n">195 g</td></tr>
+          <tr><td>base_c</td><td class="n">1</td><td class="n">217 × 105 × 54</td><td class="n">251 g</td></tr>
+          <tr><td>base_d</td><td class="n">1</td><td class="n">105 × 105 × 24</td><td class="n">115 g</td></tr>
+          <tr><td>upright</td><td class="n">2</td><td class="n">232 × 24 × 24</td><td class="n">163 g each</td></tr>
+          <tr><td>top_bar_a</td><td class="n">1</td><td class="n">203 × 24 × 24</td><td class="n">122 g</td></tr>
+          <tr><td>top_bar_b</td><td class="n">1</td><td class="n">119 × 24 × 24</td><td class="n">70 g</td></tr>
+          <tr><td>slip_mount</td><td class="n">1</td><td class="n">60 × 50 × 26</td><td class="n">27 g</td></tr>
+          <tr><td>slip_tube</td><td class="n">1</td><td class="n">15 × 15 × 46</td><td class="n">7 g</td></tr>
+          <tr><td>outer_ring</td><td class="n">1</td><td class="n">226 × 216 × 10</td><td class="n">31 g</td></tr>
+          <tr><td>inner_ring</td><td class="n">1</td><td class="n">220 × 188 × 10</td><td class="n">27 g</td></tr>
+          <tr><td>cradle</td><td class="n">1</td><td class="n">52 × 182 × 28</td><td class="n">14 g</td></tr>
+          <tr><td>sensor_mount</td><td class="n">1</td><td class="n">28 × 49 × 13</td><td class="n">5.8 g</td></tr>
+          <tr><td>cover</td><td class="n">1</td><td class="n">46 × 60 × 18</td><td class="n">4.9 g</td></tr>
+          <tr><td>clip</td><td class="n">1</td><td class="n">78 × 67 × 10</td><td class="n">7.6 g</td></tr>
+          <tr><td>bearing_fit_test</td><td class="n">1</td><td class="n">51 × 8 × 10</td><td class="n">2 g</td></tr>
+          <tr><td>pivot_shims</td><td class="n">8 on one plate</td><td class="n">3.9 × 0.6 each</td><td class="n">under 0.1 g</td></tr>
+        </tbody>
+      </table></div>
+      <p>PLA or PETG, 0.2 mm layers, 0.4 mm nozzle, no supports. Keep every part in its exported orientation, and use a brim on the shims. The cover prints rim down and the clip prints on its side. Use 15% infill on the frame and 3 walls on the rings and cradle. Solid mass is the upper limit, so the frame will print lighter.</p>
+    </section>
+    <section>
+      <h2>Hardware</h2>
+      <div class="scroll"><table>
+        <thead><tr><th>Part</th><th>Qty</th><th>Used for</th></tr></thead>
+        <tbody>
+          <tr><td>MR63ZZ bearing, 3 × 6 × 2.5 mm</td><td class="n">5</td><td>The three pivots, none at the top pivot</td></tr>
+          <tr><td>M3 × 8 socket head screw</td><td class="n">8</td><td>5 pivot axles, 3 slip ring flange</td></tr>
+          <tr><td>M3 × 5 socket head screw</td><td class="n">1</td><td>Side screw, outer ring boss to tube</td></tr>
+          <tr><td>M3 × 12 socket head screw</td><td class="n">4</td><td>Uprights to base and top bar</td></tr>
+          <tr><td>M3 × 16 socket head screw</td><td class="n">4</td><td>2 sensor mount to tray, 2 slip mount to top bar</td></tr>
+          <tr><td>M3 × 6 set screw, or short M3 screw</td><td class="n">2</td><td>Tube onto the slip ring stem</td></tr>
+          <tr><td>M3 washer, 7 mm OD</td><td class="n">3</td><td>Under the flange screws, because the holes are 5.2 mm</td></tr>
+          <tr><td>6702ZZ ball bearing, 15 × 21 × 4 mm</td><td class="n">1</td><td>Steadies the tube inside <code>slip_mount</code></td></tr>
+          <tr><td>Slip ring, 12 wire, 22 mm body</td><td class="n">1</td><td>Top pivot and power</td></tr>
+          <tr><td>M3 × 20 socket head screw</td><td class="n">12</td><td>Frame joints</td></tr>
+          <tr><td>M3 hex nut, 5.5 mm across flats</td><td class="n">19</td><td>5 pivots, 12 frame joints, 2 sensor mount</td></tr>
+          <tr><td>M3 screw or 3 mm woodscrew, 30 mm or longer</td><td class="n">4</td><td>Base to bench</td></tr>
+          <tr><td>Soft foam pad, about 15 × 20 mm and 2 to 3 mm thick</td><td class="n">1</td><td>Inside the crown of the cover</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+  </div>
+
+  <div class="columns">
+    <section>
+      <h2>Assembly</h2>
+      <ol>
+        <li>Print <code>bearing_fit_test</code> first. It has seats of 6.0, 6.1, 6.2 and 6.3 mm, marked by 1 to 4 notches. The default for the rings is 6.1 mm (2 notches). If another seat grips better, change <code>BEARING_D</code> and regenerate.</li>
+        <li>Bolt the frame sections together. Join the four base sections and the two top bar sections with M3 × 20 screws and nuts.</li>
+        <li>Press the bearings into the pads of both rings and the base. Push on the outer race only. The top bar has no bearing of its own.</li>
+        <li>Fit the cradle inside the inner ring with two M3 × 8 screws through the bearings, with a shim under each head. Push an M3 nut into the slot in each arm first, and hold it there as the screw starts. Tighten until the shim just clamps the inner race, then check it spins.</li>
+        <li>Fit the inner ring inside the outer ring the same way, with a nut in each boss slot, then check it spins.</li>
+        <li>Screw the uprights into the base from underneath, between the ribs. Hold the outer ring in the frame with its posts at top and bottom, drop the top bar on and fix it with two M3 × 12 screws.</li>
+        <li>Fit the last M3 × 8 screw, shim and nut through the base. Screw the base to the bench.</li>
+        <li>Seat <code>slip_mount</code> with its spigot in the top bar's hole. Line up the two foot holes with the two 2.6 mm holes in the top of the bar, then fit two M3 × 16 screws. They thread into the plastic. Press the 6702ZZ bearing into the pocket inside the mount from above, pushing on its outer race only, until it sits on the shelf.</li>
+        <li>Choose the rotor wires for power, trim and insulate the rest, and thread the power wires down the centre of <code>slip_tube</code> so they come out of its narrow end.</li>
+        <li>Drop <code>slip_tube</code> down through the bearing, mount and top bar, feeding the wires ahead of it, until its narrow end seats in the centre hole of the outer ring's top boss and its shoulder rests on the boss. Pull the wires through the slot in the ring's inner face and glue or tape them along the ring, off to one side of centre.</li>
+        <li>Turn the tube until a dimple lines up with the side hole in the boss, then fit the M3 × 5 side screw. Don't use a longer screw, because it would reach the wires.</li>
+        <li>Lower the slip ring's stem into the tube and fix the flange with three M3 × 8 screws and washers. Let the outer ring sit on its bottom bearing, then tighten the two set screws gently and evenly through the mount's side openings, so they don't pull the stem off centre. Spin the ring by hand: if it feels tight at one point, loosen the set screws and tighten them again.</li>
+        <li>If you are using a sensor, fix the board to <code>sensor_mount</code> with foam tape or an M3 in a slot. Put a nut in each pocket on the underside, stand the legs against the underside of the tray and fit two M3 × 16 screws down through the tray. The notch marks the +Y end.</li>
+        <li>Stick the foam pad inside the crown of <code>cover</code>. Pierce it through the 1.5 mm centre hole if you need the hole clear.</li>
+        <li>Sit the egg in the round seat with its long axis along the arms, which run between the front props and between the rear props. Lower the cover over the egg so each drone arm sits in a notch.</li>
+        <li>Lay <code>clip</code> between the two ribs on the cover and press straight down until both legs snap under the tray. Each leg has twelve notches, 4.5 mm apart, and the tray edge can sit in any matching pair. Start with the eighth pair up from the feet. If the drone rattles, press the clip further down to a shorter pair. If the clip won't reach, use a longer pair nearer the feet. Use the same notch on both legs, counting from the foot.</li>
+        <li>To take the drone out, pull the two thumb tabs apart and lift the clip off.</li>
+      </ol>
+    </section>
+    <section class="note">
+      <h2>Slip ring, updated in v1.2</h2>
+      <p><strong>How it works.</strong> The top bearing and screw are gone, so the slip ring's own bearings now form the top pivot. Its body stays still on <code>slip_mount</code>, while its stem turns with <code>slip_tube</code> and the outer ring. The bottom pivot still carries the ring's weight.</p>
+      <p><strong>New in v1.2.</strong> A 6702ZZ bearing inside <code>slip_mount</code> steadies the tube just below the slip ring, so the slip ring's stem takes less side load. Upgrading from v1.1 only needs the new <code>slip_mount</code> and the bearing. Your printed tube, top bar and outer ring all stay.</p>
+      <p><strong>Already printed your parts?</strong> Reuse the top bar: remove the bearing, cut away the thin floor of the 19 mm hole, and drill two 2.6 mm holes 13 mm deep in the top face, 24 mm either side of centre. Reprint the outer ring, because the top boss no longer has a nut slot or nub, and it now has the centre hole and side screw hole.</p>
+      <p><strong>Measure before printing.</strong> The sizes come from a similar 22 mm slip ring's drawing, and your photo's proportions match it. Check these on your own ring and change the <code>SLIP_</code> values if any differ.</p>
+      <svg viewBox="0 0 520 230" role="img" aria-label="Slip ring side view with the five sizes to measure" style="width:100%;height:auto;display:block">
+        <g fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="150" y="60" width="70" height="26"/><rect x="85" y="86" width="200" height="28"/><rect x="60" y="114" width="250" height="12" /><rect x="85" y="126" width="200" height="56"/>
+        </g>
+        <g fill="currentColor" font-size="13" font-family="inherit">
+          <text x="330" y="60">A stem diameter, 7.8 mm</text><text x="330" y="84">B stem length, 9 mm</text>
+          <text x="330" y="108">C shoulder length, 5 mm</text><text x="330" y="132">D flange diameter, 44.5 mm</text>
+          <text x="330" y="156">E flange hole circle, 35 mm</text><text x="330" y="180">F body diameter, 22 mm</text>
+          <text x="178" y="52">A</text><text x="134" y="78">B</text><text x="66" y="104">C</text><text x="40" y="124">D</text><text x="74" y="145">E</text><path d="M78 126V133" stroke="currentColor"/><text x="178" y="158">F</text>
+        </g>
+      </svg>
+      <p><strong>Current.</strong> Each ring is typically rated at 2 A, with thin 28 AWG wires. Use three rings in parallel for positive and three for negative. Wire and contact resistance will still drop some voltage, so keep the wires short, and never let the drone's supply go above 4.2 V.</p>
+      <p><strong>Only yaw spins freely.</strong> Past the outer ring, the wires must cross the pitch and roll pivots, so those axes need a soft loop of thin silicone wire and can't turn continuously. Stop and untwist if the loop tightens.</p>
+    </section>
+    <section class="note">
+      <h2>Before you fly it</h2>
+      <p><strong>Balance the drone first.</strong> The axes pass 20 mm above the tray, and the drone's arms sit about 8 mm above it, so the drone hangs roughly 12 mm below the axes. With props off, the drone should stay at any angle you leave it. If it swings back to level, its centre of gravity is too low, so raise it on foam tape.</p>
+      <p><strong>The rig adds mass.</strong> The rings, cradle, cover and clip add up to about 90 g, including the sensor mount but not the sensor. Check that against your drone's weight, because a small drone will swing them slowly. Use the rig for checking motor order, direction and rate response, with a gentle tune.</p>
+      <p><strong>Drone size.</strong> The 140 mm tip-to-tip size comes from your ruler photo. Motor spacing, prop length and egg width and length are read from the same photo, so expect a few millimetres of error. The 30 mm body height is measured. How far the egg drops into the seat is worked out from its shape, the arm, prop and motor heights are read from a side photo, and the centre of gravity is an estimate.</p>
+      <p><strong>Checked so far.</strong> A swept collision check passes on all three axes against the real prop sweep, with a smallest gap of 0.3 mm where the screw heads sit in the bearing holes. The slip ring tube turns in a 6702ZZ bearing inside its mount, and clears the rest of the mount by 0.8 mm and the top bar by 2 mm, and the side screw head clears the frame on a full yaw turn. The props clear the inner ring by 20 mm, the outer ring by 13 mm and the frame by 20 mm at their worst angles. Nothing has been printed or spun yet, so bearing fit and friction are still unproven.</p>
+    </section>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+const MODEL = /*MODEL*/null;
+const $ = (id) => document.getElementById(id);
+
+function bytes(b64) {
+  const s = atob(b64), a = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) a[i] = s.charCodeAt(i);
+  return a.buffer;
+}
+
+function geometry(part) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(bytes(part.v)), 3));
+  g.setIndex(new THREE.BufferAttribute(new Uint32Array(bytes(part.f)), 1));
+  const flat = g.toNonIndexed();
+  flat.computeVertexNormals();
+  return flat;
+}
+
+function token(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+function start() {
+  const stage = $("stage");
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+  } catch (e) {
+    $("fallback").hidden = false;
+    return;
+  }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  stage.prepend(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(30, 1, 20, 6000);
+  camera.up.set(0, 0, 1);
+  camera.position.set(165, -880, 330);
+  const orbit = new THREE.OrbitControls(camera, renderer.domElement);
+  orbit.enableDamping = true;
+  orbit.minDistance = 250;
+  orbit.maxDistance = 2000;
+
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x9aa4ad, 0.95));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.7);
+  sun.position.set(120, -200, 300);
+  scene.add(sun);
+
+  const material = (color, extra) =>
+    new THREE.MeshStandardMaterial({ color, metalness: 0.15, roughness: 0.55, ...extra });
+  const mesh = (part, mat) => new THREE.Mesh(geometry(part), mat);
+
+  const yawG = new THREE.Group(), pitchG = new THREE.Group(), rollG = new THREE.Group();
+  const frameMat = material(0xb4bcc4);
+  const frameParts = MODEL.frameParts.map((part) => {
+    const m = mesh(part, frameMat);
+    scene.add(m);
+    return { mesh: m, dir: part.dir };
+  });
+  scene.add(yawG);
+  yawG.add(mesh(MODEL.outer, material(0xd97a18)), pitchG);
+  pitchG.add(mesh(MODEL.inner, material(0x2a8fc0)), rollG);
+  const droneMesh = mesh(MODEL.drone, material(0x7f8b96));
+  const coverMesh = mesh(MODEL.cover, material(0xd8dde2));
+  const clipMesh = mesh(MODEL.clip, material(0xc23b2e));
+  rollG.add(mesh(MODEL.cradle, material(0x3a434b)), droneMesh, coverMesh, clipMesh);
+
+  const slipRing = mesh(MODEL.slipRing, material(0x20262b));
+  scene.add(slipRing);
+  frameParts.push({ mesh: slipRing, dir: [0, 0, 1] });
+
+  const race = material(0xe8ecef, { metalness: 0.6, roughness: 0.3 });
+  const frameBearings = mesh(MODEL.bearingsFrame, race);
+  scene.add(frameBearings);
+  yawG.add(mesh(MODEL.bearingsOuter, race));
+  pitchG.add(mesh(MODEL.bearingsInner, race));
+
+  const limit = mesh(MODEL.envelope, material(0xffc640, { transparent: true, opacity: 0.28, depthWrite: false }));
+  limit.visible = false;
+  rollG.add(limit);
+
+  // Measure: two clicks on the model give a straight-line distance.
+  const marks = new THREE.Group();
+  scene.add(marks);
+  const markMat = new THREE.MeshBasicMaterial({ color: 0xe0245e, depthTest: false, transparent: true });
+  const lineMat = new THREE.LineBasicMaterial({ color: 0xe0245e, depthTest: false, transparent: true });
+  const markGeo = new THREE.SphereGeometry(3.5, 16, 12);
+  let points = [];
+
+  function clearMarks() {
+    while (marks.children.length) {
+      const c = marks.children.pop();
+      if (c.isSprite) { c.material.map.dispose(); c.material.dispose(); }
+      if (c.isLine) c.geometry.dispose();
+    }
+    points = [];
+    $("distance").textContent = "Click the first point";
+    $("deltas").textContent = "";
+    $("clearMeasure").hidden = true;
+  }
+
+  function distanceLabel(text, position) {
+    const canvas = document.createElement("canvas");
+    canvas.width = 320;
+    canvas.height = 80;
+    const c = canvas.getContext("2d");
+    c.font = "500 46px " + token("--mono");
+    c.textAlign = "center";
+    c.textBaseline = "middle";
+    c.fillStyle = "#14181c";
+    c.fillRect(0, 0, 320, 80);
+    c.fillStyle = "#fff";
+    c.fillText(text, 160, 41);
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), depthTest: false, transparent: true }));
+    sprite.scale.set(72, 18, 1);
+    sprite.position.copy(position);
+    sprite.renderOrder = 3;
+    marks.add(sprite);
+  }
+
+  function addPoint(p) {
+    if (points.length === 2) clearMarks();
+    points.push(p);
+    const dot = new THREE.Mesh(markGeo, markMat);
+    dot.position.copy(p);
+    dot.renderOrder = 2;
+    marks.add(dot);
+    $("clearMeasure").hidden = false;
+    if (points.length === 1) {
+      $("distance").textContent = "Click the second point";
+      return;
+    }
+    const [a, b] = points;
+    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([a, b]), lineMat);
+    line.renderOrder = 1;
+    marks.add(line);
+    const mm = a.distanceTo(b).toFixed(1) + " mm";
+    distanceLabel(mm, a.clone().add(b).multiplyScalar(0.5));
+    $("distance").textContent = mm;
+    const d = b.clone().sub(a);
+    $("deltas").textContent = `X ${Math.abs(d.x).toFixed(1)}  Y ${Math.abs(d.y).toFixed(1)}  Z ${Math.abs(d.z).toFixed(1)}`;
+  }
+
+  const ray = new THREE.Raycaster();
+  const canvasEl = renderer.domElement;
+  let down = null;
+  canvasEl.addEventListener("pointerdown", (e) => { down = [e.clientX, e.clientY]; });
+  canvasEl.addEventListener("pointerup", (e) => {
+    if (!measuring() || !down) return;
+    if (Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5) return; // a drag orbits
+    const r = canvasEl.getBoundingClientRect();
+    const at = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(at, camera);
+    const targets = [];
+    scene.traverse((o) => { if (o.isMesh && o.visible && o.parent !== marks) targets.push(o); });
+    const hit = ray.intersectObjects(targets, false)[0];
+    if (hit) addPoint(hit.point.clone());
+  });
+
+  const measureBtn = $("measure");
+  const measuring = () => measureBtn.getAttribute("aria-pressed") === "true";
+  measureBtn.onclick = () => {
+    const on = !measuring();
+    measureBtn.setAttribute("aria-pressed", String(on));
+    stage.classList.toggle("measuring", on);
+    $("readout").hidden = !on;
+    marks.visible = on;
+    if (on) setTumble(false);
+    else clearMarks();
+  };
+  $("clearMeasure").onclick = clearMarks;
+
+  const sliders = { yaw: $("yaw"), pitch: $("pitch"), roll: $("roll") };
+  function apply() {
+    const rad = (s) => THREE.MathUtils.degToRad(+s.value);
+    yawG.rotation.z = rad(sliders.yaw);
+    pitchG.rotation.x = rad(sliders.pitch);
+    rollG.rotation.y = rad(sliders.roll);
+    for (const k in sliders) $(k + "V").textContent = sliders[k].value + "°";
+  }
+
+  const tumble = $("tumble");
+  const setTumble = (on) => tumble.setAttribute("aria-pressed", String(on));
+  const tumbling = () => tumble.getAttribute("aria-pressed") === "true";
+  tumble.onclick = () => { setTumble(!tumbling()); explode.value = 0; applyExplode(); if (points.length) clearMarks(); };
+  $("level").onclick = () => {
+    setTumble(false);
+    for (const k in sliders) sliders[k].value = 0;
+    apply();
+    explode.value = 0;
+    applyExplode();
+    if (points.length) clearMarks();
+  };
+  $("envelope").onchange = (e) => { limit.visible = e.target.checked; };
+  $("showSlip").onchange = (e) => { slipRing.visible = e.target.checked; };
+  $("showCover").onchange = (e) => { coverMesh.visible = clipMesh.visible = e.target.checked; };
+  for (const k in sliders) sliders[k].oninput = () => { setTumble(false); apply(); if (points.length) clearMarks(); };
+
+  // Explode: the frame opens outwards and the moving parts slide out towards the viewer.
+  const explode = $("explode");
+  let lastFit = 1;
+  function applyExplode() {
+    const e = +explode.value / 100;
+    $("explodeV").textContent = explode.value + "%";
+    for (const p of frameParts) {
+      p.mesh.position.set(p.dir[0] * 90 * e, p.dir[1] * 90 * e, p.dir[2] * 150 * e);
+    }
+    frameBearings.visible = e === 0;
+    pitchG.position.y = -150 * e;
+    rollG.position.y = -150 * e;
+    droneMesh.position.y = -130 * e;
+    limit.position.y = -130 * e;
+    coverMesh.position.set(0, -130 * e, 70 * e);
+    clipMesh.position.set(0, -130 * e, 130 * e);
+    // Back the camera off so the spread parts stay in view.
+    const fit = 1 + 0.75 * e;
+    camera.position.sub(orbit.target).multiplyScalar(fit / lastFit).add(orbit.target);
+    lastFit = fit;
+  }
+  explode.oninput = () => {
+    setTumble(false);
+    for (const k in sliders) sliders[k].value = 0;
+    apply();
+    applyExplode();
+    if (points.length) clearMarks();
+  };
+
+  function background() { scene.background = new THREE.Color(token("--stage")); }
+  background();
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", background);
+  new MutationObserver(background).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  function resize() {
+    const w = stage.clientWidth, h = stage.clientHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  new ResizeObserver(resize).observe(stage);
+  resize();
+  apply();
+
+  if (!matchMedia("(prefers-reduced-motion: reduce)").matches) setTumble(true);
+  let t = 0, last = performance.now();
+  const wrap = (a) => ((a + 180) % 360 + 360) % 360 - 180;
+  (function frame(now) {
+    const dt = Math.min((now - last) / 1000, 0.1);
+    last = now;
+    if (tumbling()) {
+      t += dt;
+      sliders.yaw.value = wrap(+sliders.yaw.value + dt * 18);
+      sliders.pitch.value = Math.round(55 * Math.sin(t * 0.7) + 25);
+      sliders.roll.value = wrap(+sliders.roll.value + dt * 42);
+      apply();
+    }
+    orbit.update();
+    renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  })(last);
+}
+
+if (location.hash === "#shot") document.body.classList.add("shot");  // 3D view only, for preview images
+if (window.THREE && THREE.OrbitControls) start();
+else $("fallback").hidden = false;
+</script>
